@@ -63,14 +63,15 @@ def initialize_vocab(min_tf=10,
     vocab.save_word_count(save_dir=os.path.join(vocab_dir, 'wcount.txt'))
 
 
-def generate_co_occurrence_matrix(context_window=4,
+def generate_co_occurrence_matrix(save_name,
+                                  context_window=4,
                                   metadata_dir='../data/vg-metadata/by-id-train/',
                                   vocab_dir='../result/vocab/',
                                   matrix_dir='../result/matrix/',
                                   weighted=True):
     print('Generate co-occurrence matrix with context window size [{}]\n'.format(context_window))
 
-    if check_file_in_dir(check_dir=matrix_dir, check_file='matrix.npz'): return -1
+    # if check_file_in_dir(check_dir=matrix_dir, check_file='matrix.npz'): return -1
 
     vocab = Vocabulary()
     vocab.load_vocab(os.path.join(vocab_dir, 'vocab.txt'))
@@ -153,10 +154,43 @@ def train_vce(no_components=32,
     embedding_model.save(model_save_name)
 
     vce = l2_normalize_embedding(embedding_model.word_vectors, dim=no_components)
-    vce_save_name = os.path.join(vce_dir, 'vce{}.npy'.format(no_components))
+    vce_save_name = os.path.join(vce_dir, 'vce{}.npy'.format(no_components, save_name))
     np.save(vce_save_name, vce)
 
     print('{} saved.\n'.format(vce_save_name))
+
+
+def train_vce_ablation(no_components=32,
+                       epochs=200,
+                       vocab_dir='../result/vocab/',
+                       matrix_dir='../result/ablation/matrix/',
+                       embedding_model_dir='../result/ablation/embedding-model/',
+                       vce_dir='../result/abliation/vce/'):
+    print('Train [{}] dimension Visual-Context-Embedding vectors with [{}] epochs.'.format(no_components, epochs))    
+
+    vocab = Vocabulary()
+    vocab.load_vocab(os.path.join(vocab_dir, 'vocab.txt'))
+
+    co_occur_matrix = CoOccurrenceMatrix(dim=len(vocab.word))
+    matrix_list = glob(matrix_dir+'*')
+    for matrix in matrix_list:
+        save_name = os.path.splitext(matrix)[0].split('_')[-1]
+
+        co_occur_matrix.load_matrix(load_dir=matrix)
+
+        embedding_model = Glove(no_components=no_components, learning_rate=0.05, max_count=500)
+
+        embedding_model.fit(co_occur_matrix.matrix.tocoo().astype(np.float64), epochs=epochs, no_threads=4, verbose=True)
+        embedding_model.add_dictionary(vocab.id)
+
+        model_save_name = os.path.join(embedding_model_dir, 'vce{}-{}.pickle'.format(no_components, save_name))
+        embedding_model.save(model_save_name)
+
+        vce = l2_normalize_embedding(embedding_model.word_vectors, dim=no_components)
+        vce_save_name = os.path.join(vce_dir, 'vce{}-{}.npy'.format(no_components, save_name))
+        np.save(vce_save_name, vce)
+
+        print('{} saved.\n'.format(vce_save_name))
 
 
 def split_seen_unseen(dataset_name, 
@@ -198,6 +232,48 @@ def split_seen_unseen(dataset_name,
     np.save(save_name_unseen, vce_unseen)
 
 
+def split_seen_unseen_ablation(dataset_name,
+                               dim,
+                               vocab_dir='../result/vocab/',
+                               vce_dir='../result/ablation/vce/'):
+    
+    vocab = Vocabulary()
+    vocab_name = os.path.join(vocab_dir, 'vocab.txt')
+    vocab.load_vocab(vocab_name)
+    
+    ablation_list = glob(vce_dir+'*')
+    for ab in ablation_list:
+        vce = np.load(ab)
+
+        with open('../data/{}/seen-word-synset.txt'.format(dataset_name), 'r') as fr:
+            seen_list = [line.replace('\n', '') for line in fr.readlines()]
+
+        with open('../data/{}/unseen-word-synset.txt'.format(dataset_name), 'r') as fr:
+            unseen_list = [line.replace('\n', '') for line in fr.readlines()]
+
+
+        seen_list = sync_namespace(seen_list, dataset_name)
+        unseen_list = sync_namespace(unseen_list, dataset_name)
+
+        n_seen = len(seen_list)
+        n_unseen = len(unseen_list)
+
+        vce_seen = np.empty((dim, n_seen))
+        vce_unseen = np.empty((dim, n_unseen))
+
+        for i in range(n_seen):
+            vce_seen[:, i] = vce[:, vocab.get_id(seen_list[i])]
+
+        for j in range(n_unseen):
+            vce_unseen[:, j] = vce[:, vocab.get_id(unseen_list[j])]
+
+        save_name_seen = os.path.join(vce_dir, 'vce{}-{}-seen.npy'.format(dim, dataset_name))
+        save_name_unseen = os.path.join(vce_dir, 'vce{}-{}-unseen.npy'.format(dim, dataset_name))
+        
+        np.save(save_name_seen, vce_seen)
+        np.save(save_name_unseen, vce_unseen)
+
+
 def sync_namespace(synset_list, dataset_name):
     if dataset_name == 'vg':
         # key, value = seen(unseen)-word-synset.txt, vocab.txt
@@ -226,14 +302,14 @@ def sync_namespace(synset_list, dataset_name):
     return synset_list
 
 
-def main():
+if __name__=='__main__':
     print('# main')
     print('# ---------------------------------------------------------------------------------------------------------\n')
-
+    
     # # Construct Visual-Context-Embedding
     # json_preprocessing()
     # initialize_vocab()
-    # generate_co_occurrence_matrix()
+    # generate_co_occurrence_matrix(save_name='matrix.npz')
 
     # for dim in [16, 32, 64, 128]:
     #     train_vce(no_components=dim)
@@ -241,6 +317,11 @@ def main():
     # for dim in [16, 32, 64, 128]:
     #     for d_name in ['vg', 'coco']:
     #         split_seen_unseen(dataset_name=d_name, dim=dim)
+
+    train_vce_ablation()
+    for d_name in ['vg', 'coco']:
+        split_seen_unseen(dataset_name=d_name, dim=32)
+
 
     # # Visualize Embedding Space
     # src_dir='../result/vce/'
@@ -250,7 +331,3 @@ def main():
     #         vce_unseen = np.load(os.path.join(src_dir, 'vce{}-{}-unseen.npy'.format(n_dim, dataset)))
     #         visualize_vector(vce_seen)
     #         visualize_vector(vce_unseen)
-
-
-if __name__ == '__main__':
-    main()
