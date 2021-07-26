@@ -165,7 +165,7 @@ def train_vce_ablation(no_components=32,
                        vocab_dir='../result/vocab/',
                        matrix_dir='../result/ablation/matrix/',
                        embedding_model_dir='../result/ablation/embedding-model/',
-                       vce_dir='../result/abliation/vce/'):
+                       vce_dir='../result/ablation/vce/'):
     print('Train [{}] dimension Visual-Context-Embedding vectors with [{}] epochs.'.format(no_components, epochs))    
 
     vocab = Vocabulary()
@@ -196,7 +196,8 @@ def train_vce_ablation(no_components=32,
 def split_seen_unseen(dataset_name, 
                       dim,
                       vocab_dir='../result/vocab/',
-                      vce_dir='../result/vce/'):
+                      vce_dir='../result/vce/',
+                      split_dir='../result/vce-split/'):
     vce_name = os.path.join(vce_dir, 'vce{}.npy'.format(dim))
     vce = np.load(vce_name)
 
@@ -225,8 +226,8 @@ def split_seen_unseen(dataset_name,
     for j in range(n_unseen):
         vce_unseen[:, j] = vce[:, vocab.get_id(unseen_list[j])]
 
-    save_name_seen = os.path.join(vce_dir, 'vce{}-{}-seen.npy'.format(dim, dataset_name))
-    save_name_unseen = os.path.join(vce_dir, 'vce{}-{}-unseen.npy'.format(dim, dataset_name))
+    save_name_seen = os.path.join(split_dir, 'vce{}-{}-seen.npy'.format(dim, dataset_name))
+    save_name_unseen = os.path.join(split_dir, 'vce{}-{}-unseen.npy'.format(dim, dataset_name))
     
     np.save(save_name_seen, vce_seen)
     np.save(save_name_unseen, vce_unseen)
@@ -235,7 +236,8 @@ def split_seen_unseen(dataset_name,
 def split_seen_unseen_ablation(dataset_name,
                                dim,
                                vocab_dir='../result/vocab/',
-                               vce_dir='../result/ablation/vce/'):
+                               vce_dir='../result/ablation/vce/',
+                               split_dir='../result/ablation/vce-split/'):
     
     vocab = Vocabulary()
     vocab_name = os.path.join(vocab_dir, 'vocab.txt')
@@ -243,6 +245,7 @@ def split_seen_unseen_ablation(dataset_name,
     
     ablation_list = glob(vce_dir+'*')
     for ab in ablation_list:
+        save_name = os.path.splitext(ab)[0].split('-')[-1]
         vce = np.load(ab)
 
         with open('../data/{}/seen-word-synset.txt'.format(dataset_name), 'r') as fr:
@@ -264,11 +267,12 @@ def split_seen_unseen_ablation(dataset_name,
         for i in range(n_seen):
             vce_seen[:, i] = vce[:, vocab.get_id(seen_list[i])]
 
+
         for j in range(n_unseen):
             vce_unseen[:, j] = vce[:, vocab.get_id(unseen_list[j])]
 
-        save_name_seen = os.path.join(vce_dir, 'vce{}-{}-seen.npy'.format(dim, dataset_name))
-        save_name_unseen = os.path.join(vce_dir, 'vce{}-{}-unseen.npy'.format(dim, dataset_name))
+        save_name_seen = os.path.join(split_dir, 'vce{}-{}-{}-seen.npy'.format(dim, save_name, dataset_name))
+        save_name_unseen = os.path.join(split_dir, 'vce{}-{}-{}-unseen.npy'.format(dim, save_name, dataset_name))
         
         np.save(save_name_seen, vce_seen)
         np.save(save_name_unseen, vce_unseen)
@@ -318,9 +322,9 @@ if __name__=='__main__':
     #     for d_name in ['vg', 'coco']:
     #         split_seen_unseen(dataset_name=d_name, dim=dim)
 
-    train_vce_ablation()
+    # train_vce_ablation()
     for d_name in ['vg', 'coco']:
-        split_seen_unseen(dataset_name=d_name, dim=32)
+        split_seen_unseen_ablation(dataset_name=d_name, dim=32)
 
 
     # # Visualize Embedding Space
