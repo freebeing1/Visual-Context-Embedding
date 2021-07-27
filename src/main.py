@@ -161,7 +161,7 @@ def train_vce(no_components=32,
 
 
 def train_vce_ablation(no_components=32,
-                       epochs=200,
+                       epochs=100,
                        vocab_dir='../result/vocab/',
                        matrix_dir='../result/ablation/matrix/',
                        embedding_model_dir='../result/ablation/embedding-model/',
@@ -322,7 +322,7 @@ if __name__=='__main__':
     #     for d_name in ['vg', 'coco']:
     #         split_seen_unseen(dataset_name=d_name, dim=dim)
 
-    # train_vce_ablation()
+    train_vce_ablation()
     for d_name in ['vg', 'coco']:
         split_seen_unseen_ablation(dataset_name=d_name, dim=32)
 
