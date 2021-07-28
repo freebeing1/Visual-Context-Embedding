@@ -160,7 +160,7 @@ def train_vce(no_components=32,
     print('{} saved.\n'.format(vce_save_name))
 
 
-def train_vce_ablation(no_components=32,
+def train_vce_ablation(no_components=16,
                        epochs=100,
                        vocab_dir='../result/vocab/',
                        matrix_dir='../result/ablation/matrix/',
@@ -234,7 +234,6 @@ def split_seen_unseen(dataset_name,
 
 
 def split_seen_unseen_ablation(dataset_name,
-                               dim,
                                vocab_dir='../result/vocab/',
                                vce_dir='../result/ablation/vce/',
                                split_dir='../result/ablation/vce-split/'):
@@ -247,7 +246,7 @@ def split_seen_unseen_ablation(dataset_name,
     for ab in ablation_list:
         save_name = os.path.splitext(ab)[0].split('-')[-1]
         vce = np.load(ab)
-
+        dim = vce.shape[0]
         with open('../data/{}/seen-word-synset.txt'.format(dataset_name), 'r') as fr:
             seen_list = [line.replace('\n', '') for line in fr.readlines()]
 
@@ -322,9 +321,10 @@ if __name__=='__main__':
     #     for d_name in ['vg', 'coco']:
     #         split_seen_unseen(dataset_name=d_name, dim=dim)
 
-    train_vce_ablation()
+    train_vce_ablation(no_components=32)
+    train_vce_ablation(no_components=16)
     for d_name in ['vg', 'coco']:
-        split_seen_unseen_ablation(dataset_name=d_name, dim=32)
+        split_seen_unseen_ablation(dataset_name=d_name)
 
 
     # # Visualize Embedding Space
